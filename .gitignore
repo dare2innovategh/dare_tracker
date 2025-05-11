@@ -1,0 +1,47 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Production build files
+/build
+/dist
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor configs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Replit specific
+.replit
+.replit.nix
+.breakpoints
+replit.nix
+.upm/
+.cache/
+.config/
+
+# GitHub token and deployment files
+.git-url.txt
+cookie.txt
+github-setup.js
+
+# Large assets
+attached_assets/

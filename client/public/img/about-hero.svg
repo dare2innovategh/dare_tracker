@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+  <rect width="800" height="400" fill="#f8f8f8"/>
+  <g transform="translate(400, 200)">
+    <!-- Background elements -->
+    <circle cx="-150" cy="-80" r="100" fill="#EB001B" opacity="0.1"/>
+    <circle cx="120" cy="40" r="120" fill="#FF5F00" opacity="0.15"/>
+    <circle cx="0" cy="100" r="80" fill="#F79E1B" opacity="0.1"/>
+    
+    <!-- Abstract representation of mentorship and community -->
+    <g transform="translate(-150, -20)">
+      <!-- Group of figures representing DARE participants -->
+      <circle cx="0" cy="-50" r="25" fill="#1A1F71"/>
+      <rect x="-12" y="-20" width="24" height="80" rx="8" fill="#1A1F71"/>
+      <rect x="-32" y="15" width="20" height="8" rx="4" fill="#1A1F71"/>
+      <rect x="12" y="15" width="20" height="8" rx="4" fill="#1A1F71"/>
+      
+      <circle cx="-60" cy="-40" r="20" fill="#FF5F00"/>
+      <rect x="-70" y="-15" width="20" height="60" rx="6" fill="#FF5F00"/>
+      <rect x="-85" y="10" width="15" height="6" rx="3" fill="#FF5F00"/>
+      <rect x="-55" y="10" width="15" height="6" rx="3" fill="#FF5F00"/>
+      
+      <circle cx="60" cy="-45" r="22" fill="#F79E1B"/>
+      <rect x="49" y="-18" width="22" height="70" rx="7" fill="#F79E1B"/>
+      <rect x="31" y="12" width="18" height="7" rx="3.5" fill="#F79E1B"/>
+      <rect x="67" y="12" width="18" height="7" rx="3.5" fill="#F79E1B"/>
+    </g>
+    
+    <!-- Digital devices and connectivity -->
+    <g transform="translate(150, -10)">
+      <!-- Laptop/Computer representation -->
+      <rect x="-50" y="-30" width="100" height="70" rx="5" fill="#1A1F71"/>
+      <rect x="-45" y="-25" width="90" height="55" rx="2" fill="#ffffff"/>
+      <rect x="-40" y="40" width="80" height="15" rx="3" fill="#1A1F71"/>
+      
+      <!-- Digital signals/connectivity -->
+      <g transform="translate(-70, -40)">
+        <path d="M0,0 A30,30 0 0,1 30,30" stroke="#FF5F00" stroke-width="3" fill="none"/>
+        <path d="M-5,-5 A40,40 0 0,1 35,35" stroke="#FF5F00" stroke-width="3" fill="none"/>
+        <path d="M-10,-10 A50,50 0 0,1 40,40" stroke="#FF5F00" stroke-width="3" fill="none"/>
+      </g>
+      
+      <g transform="translate(70, -40)">
+        <path d="M0,0 A30,30 0 0,0 -30,30" stroke="#F79E1B" stroke-width="3" fill="none"/>
+        <path d="M5,-5 A40,40 0 0,0 -35,35" stroke="#F79E1B" stroke-width="3" fill="none"/>
+        <path d="M10,-10 A50,50 0 0,0 -40,40" stroke="#F79E1B" stroke-width="3" fill="none"/>
+      </g>
+    </g>
+    
+    <!-- Ghana map silhouette -->
+    <g transform="translate(0, 60)">
+      <path d="M-40,-60 C-45,-50 -50,-40 -48,-30 C-46,-20 -42,-15 -38,-10 C-34,-5 -30,0 -25,10 C-20,15 -15,20 -10,25 C-5,30 0,32 5,35 C10,38 15,40 20,35 C25,30 30,25 32,20 C34,15 35,10 40,5 C45,0 50,-5 48,-15 C46,-25 42,-35 38,-40 C34,-45 30,-50 25,-55 C20,-60 15,-65 10,-62 C5,-59 0,-58 -5,-59 C-10,-60 -15,-62 -20,-63 C-25,-64 -30,-62 -35,-61 C-40,-60 -45,-58 -40,-60 Z" fill="#1A1F71" opacity="0.2"/>
+    </g>
+    
+    <!-- DARE Logo Elements -->
+    <g transform="translate(0, -80)">
+      <text
+        x="0"
+        y="0"
+        font-family="Arial, sans-serif"
+        font-weight="bold"
+        font-size="36"
+        fill="#1A1F71"
+        text-anchor="middle"
+      >ABOUT DARE</text>
+      
+      <text
+        x="0"
+        y="30"
+        font-family="Arial, sans-serif"
+        font-size="16"
+        fill="#333333"
+        text-anchor="middle"
+      >Digital Access and Rural Empowerment</text>
+    </g>
+    
+    <g transform="translate(0, 120)">
+      <text
+        x="0"
+        y="0"
+        font-family="Arial, sans-serif"
+        font-weight="bold"
+        font-size="18"
+        fill="#FF5F00"
+        text-anchor="middle"
+      >Empowering Youth in Ghana</text>
+    </g>
+  </g>
+</svg>
