@@ -398,12 +398,8 @@ export const businessProfiles = pgTable("business_profiles", {
 
 // Define the enums used in the routes
 export const enterpriseTypeEnum = z.enum([
-  "Sole Proprietorship", 
-  "Partnership", 
-  "Limited Liability Company", 
-  "Cooperative", 
-  "Social Enterprise", 
-  "Other"
+  "Formal", 
+  "Informal"
 ]);
 export type EnterpriseType = z.infer<typeof enterpriseTypeEnum>;
 

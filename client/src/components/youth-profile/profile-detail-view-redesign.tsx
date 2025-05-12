@@ -157,13 +157,39 @@ export default function ProfileDetailView({
         className="col-span-1 md:col-span-1"
       >
         <div className="flex flex-col items-center mb-6">
-          <Avatar className="h-32 w-32 md:h-40 md:w-40 border-2 border-gray-100 shadow-md">
-            <AvatarImage src={profile.profilePicture || ""} alt={profile.fullName} />
-            <AvatarFallback className="text-2xl bg-blue-50 text-blue-700">
-              {profile.fullName?.split(' ').map(n => n[0]).join('')}
-            </AvatarFallback>
+          <Avatar 
+            className="h-32 w-32 md:h-40 md:w-40 border-2 border-gray-100 shadow-md overflow-hidden"
+            style={{
+              borderRadius: '50%', // Ensure perfect circle
+              position: 'relative' // For proper positioning of the image
+            }}
+          >
+            {profile.profilePicture ? (
+          <AvatarImage 
+                src={profile.profilePicture || ""} 
+                alt={profile.fullName}
+                className="object-cover"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  objectPosition: 'center 30%', // Position toward top for better face framing
+                  transform: 'scale(1.02)', // Slight scale to avoid potential white edges
+                }}
+                loading="eager" // Prioritize loading
+              />
+            ) : (
+              <AvatarFallback 
+                className="text-2xl bg-blue-50 text-blue-700 flex items-center justify-center"
+                style={{
+                  width: '100%',
+                  height: '100%'
+                }}
+              >
+                {profile.fullName?.split(' ').map(n => n[0]).join('')}
+              </AvatarFallback>
+            )}
           </Avatar>
-          
           <div className="mt-4 text-center w-full">
             <h3 className="font-semibold text-lg">{profile.fullName}</h3>
             <p className="text-gray-500 text-sm mt-1">

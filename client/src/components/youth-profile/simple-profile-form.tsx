@@ -393,59 +393,108 @@ export default function CompleteYouthProfileForm({ userId, profileData, isEdit =
     }
   }, [form.watch('dateOfBirth')]);
 
-  // Functions for handling profile picture
-  const handleProfilePictureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsUploading(true);
-    
-    try {
-      // Create FormData
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      // Send the file to the server
-      const response = await fetch('/api/upload/profile-picture', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      // Check if the Content-Type is application/json
-      const contentType = response.headers.get('content-type');
-      
-      if (!contentType || !contentType.includes('application/json')) {
-        // If not JSON, get the response as text
-        const textResponse = await response.text();
-        console.error('Server returned non-JSON response:', textResponse);
-        throw new Error('Server did not return a JSON response');
-      }
-      
-      // Parse the JSON response
-      const data = await response.json();
-      
-      if (data.success && data.url) {
-        // Update form state with the new image URL
-        form.setValue('profilePicture', data.url);
+  // Add this function to preprocess the profile image before upload
+const preprocessProfileImage = (file) => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        // Create a canvas with passport photo dimensions (35mm x 45mm ratio)
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
         
-        toast({
-          title: "Success",
-          description: "Profile picture uploaded successfully",
-        });
-      } else {
-        throw new Error(data.message || 'Upload failed');
-      }
-    } catch (error) {
-      console.error('Upload error:', error instanceof Error ? error.message : String(error));
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to upload profile picture",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  };
+        // Set passport photo dimensions (35mm x 45mm proportions, but sized appropriately for web)
+        canvas.width = 300;  // Width for good quality
+        canvas.height = 400; // Maintain passport photo ratio (slightly wider than 3:4)
+        
+        // Calculate scaling and positioning for best face placement
+        let sx = 0, sy = 0, sWidth = img.width, sHeight = img.height;
+        
+        // If image is wider than needed for passport ratio
+        if (img.width / img.height > canvas.width / canvas.height) {
+          sWidth = img.height * (canvas.width / canvas.height);
+          sx = (img.width - sWidth) / 2; // Center horizontally
+        } 
+        // If image is taller than needed for passport ratio
+        else {
+          sHeight = img.width * (canvas.height / canvas.width);
+          sy = (img.height - sHeight) / 5; // Position toward top for better face framing
+        }
+        
+        // Fill with white background
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw the image centered
+        ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+        
+        // Convert to file with JPEG format
+        canvas.toBlob((blob) => {
+          resolve(new File([blob], file.name || 'profile.jpg', { type: 'image/jpeg' }));
+        }, 'image/jpeg', 0.92); // 92% quality for good balance
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+};
 
+  // Functions for handling profile picture
+ const handleProfilePictureUpload = async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  setIsUploading(true);
+  
+  try {
+    // Preprocess the image first
+    const processedFile = await preprocessProfileImage(file);
+    
+    // Create FormData with processed image
+    const formData = new FormData();
+    formData.append('file', processedFile);
+    
+    // Send the file to the server
+    const response = await fetch('/api/upload/profile-picture', {
+      method: 'POST',
+      body: formData,
+    });
+    
+    // Check if the Content-Type is application/json
+    const contentType = response.headers.get('content-type');
+    
+    if (!contentType || !contentType.includes('application/json')) {
+      // If not JSON, get the response as text
+      const textResponse = await response.text();
+      console.error('Server returned non-JSON response:', textResponse);
+      throw new Error('Server did not return a JSON response');
+    }
+    
+    // Parse the JSON response
+    const data = await response.json();
+    
+    if (data.success && data.url) {
+      // Update form state with the new image URL
+      form.setValue('profilePicture', data.url);
+      
+      toast({
+        title: "Success",
+        description: "Profile picture uploaded successfully",
+      });
+    } else {
+      throw new Error(data.message || 'Upload failed');
+    }
+  } catch (error) {
+    console.error('Upload error:', error instanceof Error ? error.message : String(error));
+    toast({
+      title: "Error",
+      description: error instanceof Error ? error.message : "Failed to upload profile picture",
+      variant: "destructive",
+    });
+  } finally {
+    setIsUploading(false);
+  }
+};
   const triggerFileInput = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();

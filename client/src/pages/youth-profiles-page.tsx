@@ -824,23 +824,34 @@ export default function YouthProfilesPage() {
                           >
                             <TableCell className="py-4">
                               <div className="flex items-center space-x-3">
-                                <Avatar className="h-10 w-10 border-2 transition-all duration-300" 
-                                  style={{ 
-                                    borderColor: hoveredRow === profile.id ? getDistrictColor(profile.district) : 'transparent',
-                                    backgroundColor: getDistrictColor(profile.district, 0.1)
-                                  }}
-                                >
-                                  {profile.profilePicture ? (
-                                    <AvatarImage src={profile.profilePicture} />
-                                  ) : (
-                                    <AvatarFallback style={{ 
-                                      background: `linear-gradient(135deg, ${getDistrictColor(profile.district, 0.8)} 0%, ${getDistrictColor(profile.district)} 100%)`,
-                                      color: 'white'
-                                    }}>
-                                      {profile.fullName.charAt(0)}
-                                    </AvatarFallback>
-                                  )}
-                                </Avatar>
+                                <Avatar 
+                                    className="h-10 w-10 border-2 transition-all duration-300 overflow-hidden"
+                                    style={{ 
+                                      borderColor: hoveredRow === profile.id ? getDistrictColor(profile.district) : 'transparent',
+                                      backgroundColor: getDistrictColor(profile.district, 0.1)
+                                    }}
+                                  >
+                                    {profile.profilePicture ? (
+                                      <AvatarImage 
+                                        src={profile.profilePicture} 
+                                        alt={profile.fullName}
+                                        className="object-cover"
+                                        style={{
+                                          width: '100%',
+                                          height: '100%',
+                                          objectFit: 'cover',
+                                          objectPosition: 'center 30%' // Slightly toward the top for better face framing
+                                        }}
+                                      />
+                                    ) : (
+                                      <AvatarFallback style={{ 
+                                        background: `linear-gradient(135deg, ${getDistrictColor(profile.district, 0.8)} 0%, ${getDistrictColor(profile.district)} 100%)`,
+                                        color: 'white'
+                                      }}>
+                                        {profile.fullName.charAt(0)}
+                                      </AvatarFallback>
+                                    )}
+                                  </Avatar>
                                 <div>
                                   <div className="font-medium text-gray-900 hover:text-primary transition-colors duration-150">
                                     {profile.fullName}
