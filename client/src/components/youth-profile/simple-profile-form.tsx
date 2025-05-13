@@ -143,12 +143,8 @@ const formSchema = z.object({
   guarantorPhone: z.string().optional().nullable(),
 
   // Madam/Apprentice details
-  isMadam: z.boolean().optional().nullable(),
-  isApprentice: z.boolean().optional().nullable(),
   madamName: z.string().optional().nullable(),
   madamPhone: z.string().optional().nullable(),
-  apprenticeNames: z.string().optional().nullable(),
-  apprenticePhone: z.string().optional().nullable(),
   
   // Partner program fields
   implementingPartnerName: z.string().optional().nullable(),
@@ -250,28 +246,31 @@ export default function CompleteYouthProfileForm({ userId, profileData, isEdit =
   };
 
   // Initialize form data
-  const form = useForm<ProfileFormData>({
-    resolver: zodResolver(formSchema),
-    defaultValues: (() => {
-      const names = profileData?.fullName ? extractNames(profileData.fullName) : { firstName: '', middleName: '', lastName: '' };
-      
-      // Parse emergency contact data properly
-      let emergencyContact = { name: '', relation: '', phone: '', email: '', address: '' };
-      if (profileData?.emergencyContact) {
-        try {
-          // Handle case where it's already an object
-          if (typeof profileData.emergencyContact === 'object') {
-            emergencyContact = profileData.emergencyContact;
-          } 
-          // Handle case where it's a JSON string
-          else if (typeof profileData.emergencyContact === 'string') {
-            emergencyContact = JSON.parse(profileData.emergencyContact);
-          }
-        } catch (e) {
-          console.error('Error parsing emergency contact:', e);
+ const form = useForm<ProfileFormData>({
+  resolver: zodResolver(formSchema),
+  defaultValues: (() => {
+    // Fix error: "const n" was incomplete
+    const names = profileData?.fullName 
+      ? extractNames(profileData.fullName) 
+      : { firstName: '', middleName: null, lastName: '' };
+    
+    // Parse emergency contact data properly
+    let emergencyContact = { name: '', relation: '', phone: '', email: '', address: '' };
+    if (profileData?.emergencyContact) {
+      try {
+        // Handle case where it's already an object
+        if (typeof profileData.emergencyContact === 'object') {
+          emergencyContact = profileData.emergencyContact;
+        } 
+        // Handle case where it's a JSON string
+        else if (typeof profileData.emergencyContact === 'string') {
+          emergencyContact = JSON.parse(profileData.emergencyContact);
         }
+      } catch (e) {
+        console.error('Error parsing emergency contact:', e);
       }
-      
+    }
+
       return {
         // Required fields
         firstName: profileData?.firstName || names.firstName || '',
@@ -350,14 +349,8 @@ export default function CompleteYouthProfileForm({ userId, profileData, isEdit =
         guarantor: profileData?.guarantor || '',
         guarantorPhone: profileData?.guarantorPhone || '',
         
-        isMadam: profileData?.isMadam || false,
-        isApprentice: profileData?.isApprentice || false,
         madamName: profileData?.madamName || '',
         madamPhone: profileData?.madamPhone || '',
-        apprenticeNames: Array.isArray(profileData?.apprenticeNames) 
-          ? profileData.apprenticeNames.join(', ') 
-          : profileData?.apprenticeNames || '',
-        apprenticePhone: profileData?.apprenticePhone || '',
         
         implementingPartnerName: profileData?.implementingPartnerName || 'University of Ghana Business School (UGBS)',
         refugeeStatus: profileData?.refugeeStatus || false,
@@ -505,51 +498,213 @@ const preprocessProfileImage = (file) => {
     form.setValue('profilePicture', '');
   };
 
-  // Submit mutation
-  const mutation = useMutation({
-    mutationFn: async (data: ProfileFormData) => {
-      // Prepare the data for submission
-      const fullName = getFullName(data.firstName, data.middleName, data.lastName);
+  // Add this code to your page component (outside the form component) to debug API calls
+// This will intercept and log all fetch requests
+const originalFetch = window.fetch;
+window.fetch = async function(input, init) {
+  // Only log API calls to youth profiles
+  if (input.toString().includes('/api/youth/profiles')) {
+    console.log('API CALL TO:', input);
+    console.log('REQUEST METHOD:', init?.method);
+    console.log('REQUEST HEADERS:', init?.headers);
+    
+    // Log the request body with careful formatting
+    if (init?.body) {
+      try {
+        const bodyObj = JSON.parse(init.body.toString());
+        console.log('REQUEST BODY (formatted):', JSON.stringify(bodyObj, null, 2));
+        
+        // Special validation of JSON fields
+        if (bodyObj.emergencyContact) {
+          console.log('EMERGENCY CONTACT VALIDATION:');
+          console.log('  - Type:', typeof bodyObj.emergencyContact);
+          console.log('  - Value:', bodyObj.emergencyContact);
+          
+          // Test if it can be parsed as JSON
+          try {
+            if (typeof bodyObj.emergencyContact === 'string') {
+              JSON.parse(bodyObj.emergencyContact);
+              console.log('  - Valid JSON string? YES');
+            } else {
+              console.log('  - Not a string, won\'t parse as JSON');
+            }
+          } catch (e) {
+            console.log('  - Valid JSON string? NO', e.message);
+          }
+        }
+        
+        if (bodyObj.languagesSpoken) {
+          console.log('LANGUAGES SPOKEN VALIDATION:');
+          console.log('  - Type:', typeof bodyObj.languagesSpoken);
+          console.log('  - Value:', bodyObj.languagesSpoken);
+          
+          // Test if it can be parsed as JSON
+          try {
+            if (typeof bodyObj.languagesSpoken === 'string') {
+              JSON.parse(bodyObj.languagesSpoken);
+              console.log('  - Valid JSON string? YES');
+            } else {
+              console.log('  - Not a string, won\'t parse as JSON');
+            }
+          } catch (e) {
+            console.log('  - Valid JSON string? NO', e.message);
+          }
+        }
+      } catch (e) {
+        console.log('REQUEST BODY (raw):', init.body);
+      }
+    }
+  }
+  
+  // Call the original fetch
+  const response = await originalFetch(input, init);
+  
+  // Only log API responses for youth profiles
+  if (input.toString().includes('/api/youth/profiles')) {
+    console.log('RESPONSE STATUS:', response.status);
+    
+    // Clone the response to not consume it
+    const clonedResponse = response.clone();
+    try {
+      const responseBody = await clonedResponse.json();
+      console.log('RESPONSE BODY:', responseBody);
+    } catch (e) {
+      console.log('RESPONSE is not JSON');
+      const text = await clonedResponse.text();
+      console.log('RESPONSE TEXT:', text);
+    }
+  }
+  
+  return response;
+};
+
+
+// Updated frontend mutation function to handle "None" values correctly
+
+// Complete frontend mutation function with comprehensive JSON handling
+
+const mutation = useMutation({
+  mutationFn: async (data: ProfileFormData) => {
+    try {
+      // Validate required fields
+      if (!data.firstName || !data.firstName.trim()) {
+        throw new Error("First name is required");
+      }
+      if (!data.lastName || !data.lastName.trim()) {
+        throw new Error("Last name is required");
+      }
+      if (!data.district) {
+        throw new Error("District is required");
+      }
+      if (!data.dateOfBirth) {
+        throw new Error("Date of birth is required");
+      }
       
-      // Create emergency contact object
-      const emergencyContact = {
-        name: data.emergencyContactName || '',
-        relation: data.emergencyContactRelation || '',
-        phone: data.emergencyContactPhone || '',
-        email: data.emergencyContactEmail || '',
-        address: data.emergencyContactAddress || ''
-      };
+      // Create a clean copy of the form data to work with
+      const cleanData = { ...data };
       
-      // Process apprentice names
-      const apprenticeNamesArray = data.apprenticeNames 
-        ? data.apprenticeNames.split(',').map(name => name.trim()).filter(Boolean) 
-        : [];
+      // Replace all "None" values with null throughout the data
+      Object.keys(cleanData).forEach(key => {
+        if (cleanData[key] === 'None') {
+          console.log(`Converting "None" value in field ${key} to null`);
+          cleanData[key] = null;
+        }
+      });
       
-      // Process languages spoken
-      const languagesSpokenArray = data.languagesSpoken 
-        ? data.languagesSpoken.split(',').map(lang => lang.trim()).filter(Boolean) 
-        : [];
+      // Create the fullName field
+      const fullName = `${cleanData.firstName.trim()} ${cleanData.middleName ? cleanData.middleName.trim() + ' ' : ''}${cleanData.lastName.trim()}`;
       
-      // Remove temporary form fields and add processed JSON fields
-      const { 
-        emergencyContactName, emergencyContactRelation, emergencyContactPhone, 
-        emergencyContactEmail, emergencyContactAddress,
-        apprenticeNames,
-        languagesSpoken,
-        ...restData 
-      } = data;
-      
-      // Final payload to send to the API
+      // Create a clean payload with properly structured JSON objects
       const payload = {
-        ...restData,
-        userId,
-        fullName,
-        emergencyContact: JSON.stringify(emergencyContact),
-        apprenticeNames: JSON.stringify(apprenticeNamesArray),
-        languagesSpoken: JSON.stringify(languagesSpokenArray)
+        // Core required fields
+        firstName: cleanData.firstName.trim(),
+        lastName: cleanData.lastName.trim(),
+        middleName: cleanData.middleName || '',
+        fullName: fullName,
+        district: cleanData.district,
+        dateOfBirth: cleanData.dateOfBirth,
+        
+        // Include userId if available
+        ...(userId ? { userId } : {}),
+        
+        // Set up default values for calculated fields
+        yearOfBirth: cleanData.yearOfBirth || null,
+        age: cleanData.age || null,
+        ageGroup: cleanData.ageGroup || '',
       };
       
-      // Determine the endpoint and method based on edit mode
+      // IMPORTANT: Create properly structured JSON fields
+      
+      // For emergency contact, create a proper structure
+      payload.emergencyContact = {
+        name: cleanData.emergencyContactName || '',
+        relation: cleanData.emergencyContactRelation || '',
+        phone: cleanData.emergencyContactPhone || '',
+        email: cleanData.emergencyContactEmail || '',
+        address: cleanData.emergencyContactAddress || ''
+      };
+      
+      // For languages, create a proper array
+      if (cleanData.languagesSpoken && cleanData.languagesSpoken.trim() !== '' && cleanData.languagesSpoken !== 'None') {
+        // Split the comma-separated list into an array
+        payload.languagesSpoken = cleanData.languagesSpoken
+          .split(',')
+          .map(lang => lang.trim())
+          .filter(Boolean);
+      } else {
+        // Empty array if no languages provided
+        payload.languagesSpoken = [];
+      }
+      
+      // Special handling for workHistory which has caused problems
+      if (cleanData.workHistory && cleanData.workHistory !== 'None') {
+        payload.workHistory = cleanData.workHistory;
+      } else {
+        payload.workHistory = '';
+      }
+      
+      // Handle social media links properly
+      if (cleanData.socialMediaLinks && cleanData.socialMediaLinks !== 'None') {
+        payload.socialMediaLinks = cleanData.socialMediaLinks;
+      } else {
+        payload.socialMediaLinks = '';
+      }
+      
+      // Add optional fields that have values and are not "None"
+      const optionalFields = [
+        'preferredName', 'town', 'homeAddress', 'country',
+        'adminLevel1', 'adminLevel2', 'adminLevel3', 'adminLevel4', 'adminLevel5',
+        'additionalPhoneNumber1', 'additionalPhoneNumber2', 'email',
+        'profilePicture', 'participantCode', 'maritalStatus', 'childrenCount', 
+        'dependents', 'nationalId', 'pwdStatus',
+        'highestEducationLevel', 'activeStudentStatus', 'yearsOfExperience',
+        'industryExpertise', 'coreSkills', 'skillLevel', 'communicationStyle',
+        'digitalSkills', 'digitalSkills2', 'financialAspirations',
+        'employmentStatus', 'employmentType', 'specificJob', 'businessInterest',
+        'trainingStatus', 'programStatus', 'transitionStatus', 'onboardedToTracker',
+        'localMentorName', 'localMentorContact', 'guarantor', 'guarantorPhone',
+        'madamName', 'madamPhone',
+        'implementingPartnerName', 'refugeeStatus', 'idpStatus', 'communityHostsRefugees',
+        'partnerStartDate', 'programName', 'programDetails', 'programContactPerson',
+        'programContactPhoneNumber', 'dareModel', 'hostCommunityStatus',
+        'newDataSubmission', 'isDeleted', 'cohort'
+      ];
+      
+      // Only include fields that have values and are not "None"
+      optionalFields.forEach(field => {
+        if (cleanData[field] !== undefined && cleanData[field] !== null && cleanData[field] !== '' && cleanData[field] !== 'None') {
+          payload[field] = cleanData[field];
+        }
+      });
+      
+      // Log the payload for debugging
+      console.log("Submitting profile data:", {
+        fullName: payload.fullName,
+        emergencyContact: payload.emergencyContact,
+        languagesSpoken: payload.languagesSpoken
+      });
+      
+      // Determine endpoint
       const url = isEdit && profileData?.id 
         ? `/api/youth/profiles/${profileData.id}` 
         : '/api/youth/profiles';
@@ -565,29 +720,62 @@ const preprocessProfileImage = (file) => {
         body: JSON.stringify(payload),
       });
       
+      // Handle response errors
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to save profile');
+        let errorMessage = `Server error: ${response.status}`;
+        let errorDetail = '';
+        let errorType = '';
+        
+        try {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+            errorDetail = errorData.detail || '';
+            errorType = errorData.errorType || '';
+            
+            console.error("Server error details:", errorData);
+            
+            // If we get a "None" token error, provide more specific help
+            if (errorType === 'none_token_error' || errorMessage.includes('None')) {
+              throw new Error("Error: The form contains 'None' values that cannot be processed. Please try again or contact support.");
+            }
+          } else {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = errorText;
+              console.error("Server error text:", errorText);
+            }
+          }
+        } catch (e) {
+          console.error("Could not parse error response:", e);
+        }
+        
+        throw new Error(errorMessage);
       }
       
       return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/youth/profiles'] });
-      toast({
-        title: "Success",
-        description: isEdit ? "Profile updated successfully" : "Profile created successfully",
-      });
-      navigate('/youth/profiles');
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch (error) {
+      console.error("Error in mutation function:", error);
+      throw error;
     }
-  });
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['/api/youth/profiles'] });
+    toast({
+      title: "Success",
+      description: isEdit ? "Profile updated successfully" : "Profile created successfully",
+    });
+    navigate('/youth/profiles');
+  },
+  onError: (error: Error) => {
+    toast({
+      title: "Error",
+      description: error.message,
+      variant: "destructive",
+    });
+  }
+});
 
   // Submit handler
   function onSubmit(data: ProfileFormData) {
@@ -1641,12 +1829,9 @@ const preprocessProfileImage = (file) => {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="Full Time">Full Time</SelectItem>
-                              <SelectItem value="Part-Time">Part-Time</SelectItem>
-                              <SelectItem value="Contract">Contract</SelectItem>
-                              <SelectItem value="Temporary">Temporary</SelectItem>
-                              <SelectItem value="Casual">Casual</SelectItem>
                               <SelectItem value="Unemployed">Unemployed</SelectItem>
+                              <SelectItem value="Self Employment">Self Employment</SelectItem>
+                              <SelectItem value="Wage Employment">Wage Employment</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />

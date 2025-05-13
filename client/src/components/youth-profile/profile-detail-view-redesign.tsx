@@ -136,8 +136,6 @@ const parseJsonField = (field: any) => {
 
 export default function ProfileDetailView({ 
   profile, 
-  education = [], 
-  trainings = []
 }: ProfileDetailViewProps) {
   
   const [, navigate] = useLocation();
@@ -256,14 +254,14 @@ export default function ProfileDetailView({
           <ProfileField label="Town" value={profile.town} />
           <ProfileField label="Home Address" value={profile.homeAddress} />
           <ProfileField label="Country" value={profile.country} />
-          <ProfileField label="Admin Level 1" value={profile.adminLevel1} />
+          {/* <ProfileField label="Admin Level 1" value={profile.adminLevel1} />
           <ProfileField label="Admin Level 2" value={profile.adminLevel2} />
           <ProfileField label="Admin Level 3" value={profile.adminLevel3} />
           <ProfileField label="Admin Level 4" value={profile.adminLevel4} />
-          <ProfileField label="Admin Level 5" value={profile.adminLevel5} />
+          <ProfileField label="Admin Level 5" value={profile.adminLevel5} /> */}
           <ProfileField label="Phone Number" value={profile.phoneNumber} />
-          <ProfileField label="Additional Phone 1" value={profile.additionalPhoneNumber1} />
-          <ProfileField label="Additional Phone 2" value={profile.additionalPhoneNumber2} />
+          {/* <ProfileField label="Additional Phone 1" value={profile.additionalPhoneNumber1} />
+          <ProfileField label="Additional Phone 2" value={profile.additionalPhoneNumber2} /> */}
           <ProfileField label="Email" value={profile.email} />
         </div>
       </ProfileCard>
@@ -278,10 +276,10 @@ export default function ProfileDetailView({
         <div className="space-y-4">
           <ProfileField label="Name" value={emergencyContact?.name || 
             (typeof emergencyContact === 'string' ? emergencyContact : null)} />
-          <ProfileField label="Relationship" value={emergencyContact?.relation} />
+          {/* <ProfileField label="Relationship" value={emergencyContact?.relation} />
           <ProfileField label="Phone" value={emergencyContact?.phone} />
           <ProfileField label="Email" value={emergencyContact?.email} />
-          <ProfileField label="Address" value={emergencyContact?.address} />
+          <ProfileField label="Address" value={emergencyContact?.address} /> */}
         </div>
       </ProfileCard>
       
@@ -335,7 +333,7 @@ export default function ProfileDetailView({
         <div className="space-y-4">
           <ProfileField label="Employment Status" value={profile.employmentStatus} />
           <ProfileField label="Employment Type" value={profile.employmentType} />
-          <ProfileField label="Specific Job" value={profile.specificJob} />
+          {/* <ProfileField label="Specific Job" value={profile.specificJob} /> */}
           <ProfileField label="Business Interest" value={profile.businessInterest} />
           
           <ProfileField 

@@ -283,6 +283,7 @@ export const youthProfiles = pgTable("youth_profiles", {
   // Program Participation
   businessInterest:     text("business_interest"),
   employmentStatus:     text("employment_status"),
+  employmentType:     text("employment_type"),
   specificJob:          text("specific_job"),
   trainingStatus:       text("training_status"),
   programStatus:        text("program_status"),
@@ -320,6 +321,7 @@ export const youthProfiles = pgTable("youth_profiles", {
   newDataSubmission:      boolean("new_data_submission").default(false),
   isDeleted:              boolean("is_deleted").default(false),
   hostCommunityStatus:    text("host_community_status"),
+  financialAspirations:    text("financial_aspirations"),
 
   createdAt:             timestamp("created_at").defaultNow(),
   updatedAt:             timestamp("updated_at"),
@@ -1141,6 +1143,7 @@ export const insertYouthProfileSchema = createInsertSchema(youthProfiles)
 
     businessInterest:      z.string().optional().nullable(),
     employmentStatus:      z.string().optional().nullable(),
+    employmentType:        z.string().optional().nullable(),
     specificJob:           z.string().optional().nullable(),
     trainingStatus:        z.string().optional().nullable(),
     programStatus:         z.string().optional().nullable(),
@@ -1148,12 +1151,8 @@ export const insertYouthProfileSchema = createInsertSchema(youthProfiles)
     onboardedToTracker:    z.boolean().optional().nullable(),
 
     dareModel:             dareModelEnum.optional().nullable(),
-    isMadam:               z.boolean().optional().nullable(),
-    isApprentice:          z.boolean().optional().nullable(),
     madamName:             z.string().optional().nullable(),
     madamPhone:            z.string().optional().nullable(),
-    apprenticeNames:       z.any().optional().nullable(),
-    apprenticePhone:       z.string().optional().nullable(),
 
     localMentorName:       z.string().optional().nullable(),
     localMentorContact:    z.string().optional().nullable(),
@@ -1176,6 +1175,8 @@ export const insertYouthProfileSchema = createInsertSchema(youthProfiles)
     newDataSubmission:      z.boolean().optional().nullable(),
     isDeleted:              z.boolean().optional().nullable(),
     hostCommunityStatus:    z.string().optional().nullable(),
+    financialAspirations:    z.string().optional().nullable(),
+    
   });
 export type InsertYouthProfileSchema = z.infer<typeof insertYouthProfileSchema>;
 

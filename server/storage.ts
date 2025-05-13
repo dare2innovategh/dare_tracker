@@ -361,10 +361,6 @@ export class MemStorage implements IStorage {
     return updatedUser;
   }
   
-  // Youth Profile Methods
-  async getYouthProfile(id: number): Promise<YouthProfile | undefined> {
-    return this.youthProfiles.get(id);
-  }
   
   async getYouthProfileByUserId(userId: number): Promise<YouthProfile | undefined> {
     return Array.from(this.youthProfiles.values()).find(
@@ -377,194 +373,558 @@ export class MemStorage implements IStorage {
       (profile) => profile.district === district,
     );
   }
-  
-  async getAllYouthProfiles(): Promise<YouthProfile[]> {
-    return Array.from(this.youthProfiles.values());
+ 
+ // Complete and focused storage.ts update focused on fixing the error:
+// "Token "None" is invalid" in JSON data
+
+// The key is to handle the special string value "None" that's appearing in your JSON fields
+
+// Utility function to convert camelCase to snake_case
+private camelToSnakeCase(str: string): string {
+  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+
+// Utility function to convert snake_case to camelCase
+private snakeToCamelCase(str: string): string {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+// Convert all object keys from camelCase to snake_case
+private convertObjectToSnakeCase(obj: any): any {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
   }
   
-  async createYouthProfile(profile: InsertYouthProfileSchema): Promise<YouthProfile> {
-    try {
-      console.log('Creating new youth profile');
-      
-      // Process the profile data to ensure JSON fields are valid
-      const processedProfile = this.processYouthProfileData(profile);
-      
-      // Extract keys and values for SQL query
-      const keys = Object.keys(processedProfile);
-      const placeholders = keys.map((_, index) => `$${index + 1}`);
-      const values = keys.map(key => processedProfile[key]);
-      
-      // Construct the query
-      const query = `
-        INSERT INTO youth_profiles (${keys.join(', ')})
-        VALUES (${placeholders.join(', ')})
-        RETURNING *
-      `;
-      
-      const result = await this.pool.query(query, values);
-      return result.rows[0];
-    } catch (error) {
-      console.error('Error creating youth profile:', error);
-      throw error;
+  if (Array.isArray(obj)) {
+    return obj.map(item => this.convertObjectToSnakeCase(item));
+  }
+  
+  const snakeCaseObj = {};
+  
+  Object.keys(obj).forEach(key => {
+    // Skip any apprenticeNames field
+    if (key === 'apprenticeNames') return;
+    
+    const snakeKey = this.camelToSnakeCase(key);
+    
+    // For nested objects, recursively convert their keys too
+    if (obj[key] !== null && typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
+      snakeCaseObj[snakeKey] = this.convertObjectToSnakeCase(obj[key]);
+    } else {
+      snakeCaseObj[snakeKey] = obj[key];
     }
+  });
+  
+  return snakeCaseObj;
+}
+
+// Convert all object keys from snake_case back to camelCase
+private convertObjectToCamelCase(obj: any): any {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
   }
   
-  async updateYouthProfile(id: number, profileData: Partial<InsertYouthProfileSchema>): Promise<YouthProfile | undefined> {
-    try {
-      console.log(`Updating youth profile ID: ${id}`);
-      console.log("Received update data:", profileData);
-      
-      // First, process the data to ensure all fields are properly formatted
-      // This is where JSON fields, 'None' values, etc. are properly handled
-      const processedData = this.processYouthProfileData(profileData);
-      console.log("Processed update data:", processedData);
-      
-      // Now prepare data for the SQL query
-      const keys = Object.keys(processedData).filter(key => key !== 'id');
-      if (keys.length === 0) {
-        console.log('No fields to update');
-        // If nothing to update, get and return the current profile
-        const result = await this.getYouthProfile(id);
-        if (!result) {
-          throw new Error(`Youth profile with ID ${id} not found`);
+  if (Array.isArray(obj)) {
+    return obj.map(item => this.convertObjectToCamelCase(item));
+  }
+  
+  const camelCaseObj = {};
+  
+  Object.keys(obj).forEach(key => {
+    const camelKey = this.snakeToCamelCase(key);
+    
+    // Special handling for JSON fields
+    if (key === 'emergency_contact' || key === 'languages_spoken' || key === 'social_media_links') {
+      try {
+        // Try to parse the JSON if it's a string
+        if (typeof obj[key] === 'string') {
+          camelCaseObj[camelKey] = JSON.parse(obj[key]);
+        } else {
+          // If it's already an object/array (e.g., from JSONB), use as-is
+          camelCaseObj[camelKey] = obj[key];
         }
-        return result;
+      } catch (e) {
+        // If parsing fails, use the raw value
+        console.error(`Error parsing JSON field ${key}:`, e);
+        camelCaseObj[camelKey] = obj[key];
+      }
+    } 
+    // For nested objects, recursively convert their keys too
+    else if (obj[key] !== null && typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
+      camelCaseObj[camelKey] = this.convertObjectToCamelCase(obj[key]);
+    } else {
+      camelCaseObj[camelKey] = obj[key];
+    }
+  });
+  
+  return camelCaseObj;
+}
+
+// Process profile data to handle JSON fields and convert to snake_case
+private processYouthProfileData(data: Partial<InsertYouthProfileSchema>): any {
+  // Create a copy to avoid modifying the input
+  const processed = { ...data };
+  
+  console.log("Processing profile data, original keys:", Object.keys(processed));
+  
+  // SPECIAL STRING HANDLING - KEY FIX FOR "None" VALUES
+  // First, let's check ALL fields for "None" values and replace them appropriately
+  Object.keys(processed).forEach(key => {
+    if (processed[key] === 'None') {
+      console.log(`Found 'None' string value in field ${key}, replacing with null`);
+      processed[key] = null;
+    }
+  });
+  
+  // Ensure fullName is set if firstName and lastName are provided
+  if (!processed.fullName && processed.firstName && processed.lastName) {
+    processed.fullName = `${processed.firstName.trim()} ${processed.middleName ? processed.middleName.trim() + ' ' : ''}${processed.lastName.trim()}`;
+    console.log("Generated fullName:", processed.fullName);
+  }
+  
+  // Handle JSON fields before converting to snake_case
+  const jsonFields = ['emergencyContact', 'languagesSpoken', 'socialMediaLinks', 'workHistory'];
+  
+  jsonFields.forEach(field => {
+    if (field in processed) {
+      const value = processed[field];
+      console.log(`Processing JSON field ${field}, original type:`, typeof value);
+      
+      // Critical fix: Handle "None" special case explicitly for workHistory
+      if (value === 'None') {
+        console.log(`Field ${field} has literal "None" value, replacing with empty value`);
+        if (field === 'emergencyContact') {
+          processed[field] = JSON.stringify({
+            name: '',
+            relation: '',
+            phone: '',
+            email: '',
+            address: ''
+          });
+        } else if (field === 'languagesSpoken' || field === 'workHistory') {
+          processed[field] = JSON.stringify([]);
+        } else {
+          processed[field] = JSON.stringify("");
+        }
+        return; // Skip further processing for this field
       }
       
-      // Build the SET clause and values for the query
-      const setClauses = [];
-      const values = [];
-      let paramIndex = 1;
+      // Handle different input types
+      if (value === null || value === undefined || value === '') {
+        // Set default empty values based on field type
+        if (field === 'emergencyContact') {
+          processed[field] = JSON.stringify({
+            name: '',
+            relation: '',
+            phone: '',
+            email: '',
+            address: ''
+          });
+        } else if (field === 'languagesSpoken' || field === 'workHistory') {
+          processed[field] = JSON.stringify([]);
+        } else if (field === 'socialMediaLinks') {
+          processed[field] = JSON.stringify("");
+        }
+        console.log(`Empty value in ${field}, set default:`, processed[field]);
+      } 
+      else if (typeof value === 'object') {
+        // It's already an object/array, stringify it
+        try {
+          processed[field] = JSON.stringify(value);
+          console.log(`Stringified object in ${field}:`, processed[field]);
+        } catch (e) {
+          console.error(`Error stringifying ${field}:`, e);
+          // Set fallback default
+          if (field === 'emergencyContact') {
+            processed[field] = '{"name":"","relation":"","phone":"","email":"","address":""}';
+          } else if (field === 'languagesSpoken' || field === 'workHistory') {
+            processed[field] = '[]';
+          } else {
+            processed[field] = '""';
+          }
+        }
+      } 
+      else if (typeof value === 'string') {
+        // Check if it's already a valid JSON string
+        try {
+          JSON.parse(value);
+          console.log(`Valid JSON string in ${field}, keeping as is`);
+        } catch (e) {
+          console.warn(`Invalid JSON in ${field}, attempting to fix`);
+          
+          // Try to fix common JSON issues
+          if (field === 'emergencyContact') {
+            processed[field] = '{"name":"","relation":"","phone":"","email":"","address":""}';
+          } else if (field === 'languagesSpoken' || field === 'workHistory') {
+            // If it looks like a comma-separated list, convert to array
+            if (value.includes(',')) {
+              const items = value.split(',').map(item => item.trim()).filter(Boolean);
+              processed[field] = JSON.stringify(items);
+            } else if (value.trim() !== '') {
+              // Single value, make it a single-item array
+              processed[field] = JSON.stringify([value.trim()]);
+            } else {
+              // Empty value, use empty array
+              processed[field] = '[]';
+            }
+          } else {
+            // For other fields, just use the string value
+            processed[field] = JSON.stringify(value === '' ? "" : value);
+          }
+          console.log(`Fixed JSON in ${field}:`, processed[field]);
+        }
+      }
+    }
+  });
+  
+  // Process text fields that might contain "None" or "Not Specified"
+  const textFields = ['businessInterest', 'programDetails', 'specificJob', 
+                     'coreSkills', 'skillLevel', 'guarantor', 'guarantorPhone', 
+                     'madamName', 'madamPhone', 'localMentorName', 'localMentorContact'];
+  
+  textFields.forEach(field => {
+    if (field in processed && processed[field] !== null) {
+      if (processed[field] === 'None' || processed[field] === 'Not Specified') {
+        console.log(`Replacing "${processed[field]}" in ${field} with empty string`);
+        processed[field] = '';
+      }
+    }
+  });
+  
+  // Handle date fields
+  const dateFields = ['dateOfBirth', 'partnerStartDate'];
+  dateFields.forEach(field => {
+    if (field in processed && processed[field] !== null) {
+      if (typeof processed[field] === 'string') {
+        try {
+          const date = new Date(processed[field]);
+          // Check if date is valid
+          if (!isNaN(date.getTime())) {
+            processed[field] = date;
+            console.log(`Converted string date in ${field} to Date:`, processed[field]);
+          } else {
+            throw new Error("Invalid date");
+          }
+        } catch (e) {
+          console.warn(`Invalid date in ${field}, setting to null`);
+          processed[field] = null;
+        }
+      }
+    }
+  });
+  
+  // Convert empty strings to null for non-JSON fields
+  Object.keys(processed).forEach(key => {
+    if (processed[key] === '' && !jsonFields.includes(key)) {
+      console.log(`Converting empty string in ${key} to null`);
+      processed[key] = null;
+    }
+  });
+  
+  // Remove apprenticeNames field if it exists
+  if ('apprenticeNames' in processed) {
+    console.log("Removing apprenticeNames field");
+    delete processed.apprenticeNames;
+  }
+  
+  // Final validation for JSON fields
+  jsonFields.forEach(field => {
+    if (field in processed && processed[field] !== null) {
+      const value = processed[field];
+      if (typeof value === 'string') {
+        try {
+          // Verify it's valid JSON
+          JSON.parse(value);
+        } catch (e) {
+          console.error(`Field ${field} still has invalid JSON after processing:`, value);
+          // Last resort defaults
+          if (field === 'emergencyContact') {
+            processed[field] = '{"name":"","relation":"","phone":"","email":"","address":""}';
+          } else if (field === 'languagesSpoken' || field === 'workHistory') {
+            processed[field] = '[]';
+          } else {
+            processed[field] = '""';
+          }
+          console.log(`Applied last resort fix to ${field}:`, processed[field]);
+        }
+      }
+    }
+  });
+  
+  // Convert all camelCase keys to snake_case for PostgreSQL
+  const snakeCaseData = this.convertObjectToSnakeCase(processed);
+  console.log("Converted to snake_case keys:", Object.keys(snakeCaseData));
+  
+  return snakeCaseData;
+}
+
+// Create a new youth profile with camelCase to snake_case conversion
+async createYouthProfile(profile: InsertYouthProfileSchema): Promise<YouthProfile> {
+  try {
+    console.log('Creating new youth profile');
+    
+    // Debug JSON fields first
+    this.debugProfileJsonFields(profile);
+    
+    // Process the profile data to ensure JSON fields are valid and convert to snake_case
+    const processedProfile = this.processYouthProfileData(profile);
+    
+    // Extract keys and values for SQL query
+    const keys = Object.keys(processedProfile);
+    
+    // Create placeholders with explicit JSONB type casting for JSON fields
+    const placeholders = keys.map((key, index) => {
+      // Apply explicit type casting for JSON fields
+      if (key === 'emergency_contact' || key === 'languages_spoken' || key === 'social_media_links') {
+        return `$${index + 1}::jsonb`;
+      }
+      return `$${index + 1}`;
+    });
+    
+    const values = keys.map(key => processedProfile[key]);
+    
+    // Construct the query with explicit type casting
+    const query = `
+      INSERT INTO youth_profiles (${keys.join(', ')})
+      VALUES (${placeholders.join(', ')})
+      RETURNING *
+    `;
+    
+    console.log("SQL Query:", query);
+    console.log("Number of values:", values.length);
+    
+    try {
+      const result = await this.pool.query(query, values);
       
-      for (const key of keys) {
+      // Convert the result from snake_case back to camelCase
+      const camelCaseResult = this.convertObjectToCamelCase(result.rows[0]);
+      return camelCaseResult as YouthProfile;
+    } catch (dbError) {
+      console.error("Database error during insertion:", dbError);
+      
+      // If error indicates missing full_name, try a simpler query with just essential fields
+      if (dbError.message.includes('null value in column "full_name"') || 
+          dbError.message.includes('invalid input syntax for type json')) {
+        
+        console.log("Attempting fallback insertion with essential fields only");
+        
+        // Create a minimal version with only required fields
+        const minimalQuery = `
+          INSERT INTO youth_profiles (
+            first_name,
+            last_name,
+            full_name,
+            district,
+            emergency_contact,
+            languages_spoken
+          ) VALUES (
+            $1, $2, $3, $4,
+            '{"name":"","relation":"","phone":"","email":"","address":""}'::jsonb,
+            '[]'::jsonb
+          )
+          RETURNING *
+        `;
+        
+        // Extract essential values from the processed profile or original profile
+        const firstName = processedProfile.first_name || profile.firstName;
+        const lastName = processedProfile.last_name || profile.lastName;
+        const fullName = processedProfile.full_name || `${firstName} ${lastName}`;
+        const district = processedProfile.district || profile.district;
+        
+        const minimalValues = [firstName, lastName, fullName, district];
+        
+        const fallbackResult = await this.pool.query(minimalQuery, minimalValues);
+        
+        // Convert the fallback result from snake_case back to camelCase
+        const camelCaseFallback = this.convertObjectToCamelCase(fallbackResult.rows[0]);
+        return camelCaseFallback as YouthProfile;
+      }
+      
+      // If fallback fails, re-throw the original error
+      throw dbError;
+    }
+  } catch (error) {
+    console.error('Error creating youth profile:', error);
+    throw error;
+  }
+}
+
+// Update a youth profile with camelCase to snake_case conversion
+// This function has a special fix for handling the "None" token in JSON fields
+async updateYouthProfile(id: number, profileData: Partial<InsertYouthProfileSchema>): Promise<YouthProfile | undefined> {
+  try {
+    console.log(`Updating youth profile ID: ${id}`);
+    
+    // CRITICAL FIX: Pre-process any fields that might contain "None" literal strings
+    Object.keys(profileData).forEach(key => {
+      if (profileData[key] === 'None') {
+        console.log(`Storage: Updating ${key} field for profile ${id} to: null (was "None")`);
+        profileData[key] = null;
+      }
+    });
+    
+    // Special handling for workHistory which might be "None" and causing JSON errors
+    if ('workHistory' in profileData && profileData.workHistory === 'None') {
+      console.log(`Special handling for workHistory "None" value`);
+      profileData.workHistory = null;
+    }
+    
+    // Process the profile data to ensure JSON fields are valid and convert to snake_case
+    const processedData = this.processYouthProfileData(profileData);
+    
+    // Now prepare data for the SQL query
+    const keys = Object.keys(processedData).filter(key => key !== 'id');
+    if (keys.length === 0) {
+      console.log('No fields to update');
+      // If nothing to update, get and return the current profile
+      const result = await this.getYouthProfile(id);
+      if (!result) {
+        throw new Error(`Youth profile with ID ${id} not found`);
+      }
+      return result;
+    }
+    
+    // Build the SET clause and values for the query with type casting
+    const setClauses = [];
+    const values = [];
+    let paramIndex = 1;
+    
+    for (const key of keys) {
+      // Apply explicit type casting for JSON fields
+      if (key === 'emergency_contact' || key === 'languages_spoken' || key === 'social_media_links' || key === 'work_history') {
+        setClauses.push(`${key} = $${paramIndex}::jsonb`);
+      } else {
         setClauses.push(`${key} = $${paramIndex}`);
-        values.push(processedData[key]);
-        paramIndex++;
       }
-      
-      // Execute the update query
-      const query = `
-        UPDATE youth_profiles
-        SET ${setClauses.join(', ')}
-        WHERE id = $${paramIndex}
-        RETURNING *
-      `;
-      
-      values.push(id);
-      
+      values.push(processedData[key]);
+      paramIndex++;
+    }
+    
+    // Execute the update query
+    const query = `
+      UPDATE youth_profiles
+      SET ${setClauses.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+    
+    values.push(id);
+    
+    console.log("Update SQL Query:", query);
+    console.log("Number of values:", values.length);
+    
+    try {
       const result = await this.pool.query(query, values);
       
       if (result.rows.length === 0) {
         throw new Error(`Youth profile with ID ${id} not found`);
       }
       
+      // Convert the result from snake_case back to camelCase
+      const camelCaseResult = this.convertObjectToCamelCase(result.rows[0]);
       console.log("Profile updated successfully");
-      return result.rows[0];
-    } catch (error) {
-      console.error('Error updating youth profile:', error);
-      throw error;
-    }
-  }
-  // Helper method to process youth profile data and handle special fields
-  private processYouthProfileData(data: Partial<InsertYouthProfileSchema>): Partial<InsertYouthProfileSchema> {
-    // Create a copy to avoid modifying the input
-    const processed = { ...data };
-    
-    console.log("Processing profile data, before:", JSON.stringify(processed, null, 2));
-    
-    // Handle JSON fields
-    const jsonFields = ['emergencyContact', 'apprenticeNames', 'languagesSpoken'];
-    jsonFields.forEach(field => {
-      if (field in processed) {
-        const value = processed[field];
-        console.log(`Processing JSON field ${field}, original value:`, value);
+      return camelCaseResult as YouthProfile;
+    } catch (dbError) {
+      console.error("Database error during update:", dbError);
+      
+      // If there's a JSON error, try a simpler update without JSON fields
+      if (dbError.message.includes('invalid input syntax for type json')) {
+        console.log("JSON syntax error details:", dbError.detail);
         
-        // Handle null, empty strings, or "None"
-        if (value === null || value === '' || value === 'None') {
-          // Set default empty values based on field type
-          if (field === 'emergencyContact') {
-            processed[field] = JSON.stringify({
-              name: '',
-              relation: '',
-              phone: '',
-              email: '',
-              address: ''
-            });
-          } else {
-            // For array fields
-            processed[field] = JSON.stringify([]);
+        // Special handling specifically for the "Token "None" is invalid" error
+        if (dbError.detail && dbError.detail.includes('Token "None" is invalid')) {
+          console.log("Detected 'None' token in JSON - attempting specific fix");
+          
+          // Create a simplified update with only non-JSON fields
+          const nonJsonKeys = keys.filter(key => 
+            key !== 'emergency_contact' && key !== 'languages_spoken' && 
+            key !== 'social_media_links' && key !== 'work_history'
+          );
+          
+          if (nonJsonKeys.length === 0) {
+            console.log("No non-JSON fields to update, cannot proceed with fallback");
+            throw dbError;
           }
-          console.log(`Empty value detected in ${field}, setting default:`, processed[field]);
-        } else if (typeof value === 'object') {
-          // If it's already an object, stringify it
-          processed[field] = JSON.stringify(value);
-          console.log(`Object value detected in ${field}, stringified:`, processed[field]);
-        } else if (typeof value === 'string') {
-          try {
-            // Try parsing it to validate JSON
-            JSON.parse(value);
-            // If it parses successfully, it's already a valid JSON string
-            console.log(`Valid JSON string detected in ${field}, keeping as is`);
-          } catch (e) {
-            // If parsing fails, it's not a valid JSON string
-            console.warn(`Invalid JSON in ${field}, value: "${value}", replacing with default`);
-            if (field === 'emergencyContact') {
-              processed[field] = JSON.stringify({
-                name: '',
-                relation: '',
-                phone: '',
-                email: '',
-                address: ''
-              });
-            } else {
-              processed[field] = JSON.stringify([]);
-            }
-            console.log(`Replaced invalid JSON in ${field} with:`, processed[field]);
+          
+          // Build simplified SET clause without JSON fields
+          const simplifiedSetClauses = [];
+          const simplifiedValues = [];
+          let simplifiedParamIndex = 1;
+          
+          for (const key of nonJsonKeys) {
+            simplifiedSetClauses.push(`${key} = $${simplifiedParamIndex}`);
+            simplifiedValues.push(processedData[key]);
+            simplifiedParamIndex++;
           }
+          
+          const fallbackQuery = `
+            UPDATE youth_profiles
+            SET ${simplifiedSetClauses.join(', ')}
+            WHERE id = $${simplifiedParamIndex}
+            RETURNING *
+          `;
+          
+          simplifiedValues.push(id);
+          
+          console.log("Fallback query without JSON fields:", fallbackQuery);
+          
+          const fallbackResult = await this.pool.query(fallbackQuery, simplifiedValues);
+          
+          if (fallbackResult.rows.length === 0) {
+            throw new Error(`Youth profile with ID ${id} not found`);
+          }
+          
+          // Convert the fallback result from snake_case back to camelCase
+          const camelCaseFallback = this.convertObjectToCamelCase(fallbackResult.rows[0]);
+          console.log("Profile partially updated (without JSON fields)");
+          return camelCaseFallback as YouthProfile;
         }
       }
-    });
-    
-    // Process text fields that might contain "None" or "Not Specified"
-    const textFields = ['workHistory', 'businessInterest', 'programDetails', 'specificJob', 'coreSkills', 'skillLevel', 
-                        'guarantor', 'guarantorPhone', 'madamName', 'madamPhone', 'localMentorName', 'localMentorContact'];
-    
-    textFields.forEach(field => {
-      if (field in processed && processed[field] !== null) {
-        if (processed[field] === 'None' || processed[field] === 'Not Specified') {
-          console.log(`Replacing "${processed[field]}" in ${field} with empty string`);
-          processed[field] = '';
-        }
-      }
-    });
-    
-    // Handle date fields
-    const dateFields = ['dateOfBirth', 'partnerStartDate'];
-    dateFields.forEach(field => {
-      if (field in processed && processed[field] !== null) {
-        if (typeof processed[field] === 'string') {
-          try {
-            processed[field] = new Date(processed[field]);
-            console.log(`Converted string date in ${field} to Date object:`, processed[field]);
-          } catch (e) {
-            console.warn(`Invalid date in ${field}, setting to null`);
-            processed[field] = null;
-          }
-        }
-      }
-    });
-    
-    // Convert empty strings to null for non-JSON fields
-    Object.keys(processed).forEach(key => {
-      if (processed[key] === '' && !jsonFields.includes(key)) {
-        console.log(`Converting empty string in ${key} to null`);
-        processed[key] = null;
-      }
-    });
-    
-    console.log("Processing profile data, after:", JSON.stringify(processed, null, 2));
-    return processed;
+      
+      // If fallback fails, re-throw the original error
+      throw dbError;
+    }
+  } catch (error) {
+    console.error('Error updating youth profile:', error);
+    throw error;
   }
+}
+
+
+// Get a youth profile by ID with snake_case to camelCase conversion
+async getYouthProfile(id: number): Promise<YouthProfile | undefined> {
+  try {
+    const query = 'SELECT * FROM youth_profiles WHERE id = $1';
+    const result = await this.pool.query(query, [id]);
+    
+    if (result.rows.length === 0) {
+      return undefined;
+    }
+    
+    // Convert snake_case to camelCase in the result
+    const camelCaseResult = this.convertObjectToCamelCase(result.rows[0]);
+    return camelCaseResult as YouthProfile;
+  } catch (error) {
+    console.error('Error getting youth profile:', error);
+    throw error;
+  }
+}
+
+// Get all youth profiles with snake_case to camelCase conversion
+async getAllYouthProfiles(): Promise<YouthProfile[]> {
+  try {
+    const query = 'SELECT * FROM youth_profiles WHERE is_deleted = false ORDER BY id DESC';
+    const result = await this.pool.query(query);
+    
+    // Convert snake_case to camelCase in all results
+    const camelCaseResults = result.rows.map(row => this.convertObjectToCamelCase(row));
+    return camelCaseResults as YouthProfile[];
+  } catch (error) {
+    console.error('Error getting all youth profiles:', error);
+    throw error;
+  }
+}
+
   async deleteYouthProfile(id: number): Promise<void> {
     const profile = await this.getYouthProfile(id);
     if (!profile) {
