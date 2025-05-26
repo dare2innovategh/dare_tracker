@@ -44,13 +44,44 @@ interface ProfileDetailViewProps {
   socialLinks?: any[];
 }
 
-// Component to display a field with label and value
-const ProfileField = ({ label, value, colSpan = 1 }: { label: string, value: React.ReactNode, colSpan?: number }) => (
-  <div className={`flex flex-col gap-1 ${colSpan > 1 ? 'sm:col-span-' + colSpan : ''}`}>
-    <div className="font-medium text-gray-500">{label}:</div>
-    <div className="text-gray-700 break-words">{value || "Not specified"}</div>
-  </div>
-);
+// Safer function to ensure a value is a string
+const ensureString = (value: any): string | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return value.filter(v => v !== null && v !== undefined).map(v => ensureString(v)).join(", ");
+  }
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch (e) {
+      return null;
+    }
+  }
+  return null;
+};
+
+// Component to display a field with label and value - Made safer
+const ProfileField = ({ label, value }: { label: string, value: any }) => {
+  // Make sure we never render an object directly
+  const safeValue = React.isValidElement(value) ? value : ensureString(value);
+  
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="font-medium text-gray-500">{label}:</div>
+      <div className="text-gray-700 break-words">
+        {safeValue || "Not specified"}
+      </div>
+    </div>
+  );
+};
 
 // Profile card component for better organization
 const ProfileCard = ({ 
@@ -97,52 +128,43 @@ const formatDate = (dateString: string | null | undefined) => {
   }
 };
 
-// Helper function to parse JSON if needed
-const parseJsonField = (field: any) => {
+// Extract data from potentially JSON-formatted fields
+const safelyExtractData = (field: any, key: string | null = null): string | null => {
   if (!field) return null;
   
+  // If a specific key is requested and field is an object
+  if (key && typeof field === 'object' && field !== null) {
+    return ensureString(field[key]);
+  }
+  
+  // If field is a string that might be JSON
   if (typeof field === 'string') {
     try {
-      // Try to parse as JSON
       const parsed = JSON.parse(field);
-      
+      if (key && typeof parsed === 'object' && parsed !== null) {
+        return ensureString(parsed[key]);
+      }
       if (Array.isArray(parsed)) {
-        return parsed.join(", ");
-      } else if (typeof parsed === 'object') {
-        // For objects like emergencyContact
+        return parsed.map(item => ensureString(item)).join(", ");
+      }
+      if (typeof parsed === 'object' && parsed !== null) {
         return Object.entries(parsed)
-          .filter(([_, value]) => value) // Filter out empty values
-          .map(([key, value]) => `${key}: ${value}`)
+          .filter(([_, v]) => v !== null && v !== undefined)
+          .map(([k, v]) => `${k}: ${ensureString(v)}`)
           .join(", ");
       }
-      
-      return field;
+      return ensureString(parsed);
     } catch (e) {
       // Not valid JSON, return as is
       return field;
     }
   }
   
-  if (Array.isArray(field)) {
-    return field.join(", ");
-  }
-  
-  if (typeof field === 'object' && field !== null) {
-    return JSON.stringify(field);
-  }
-  
-  return field;
+  return ensureString(field);
 };
 
-export default function ProfileDetailView({ 
-  profile, 
-}: ProfileDetailViewProps) {
-  
+export default function ProfileDetailView({ profile }: ProfileDetailViewProps) {
   const [, navigate] = useLocation();
-  
-  // Parse JSON fields
-  const emergencyContact = parseJsonField(profile.emergencyContact);
-  const languagesSpoken = parseJsonField(profile.languagesSpoken);
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
@@ -158,23 +180,23 @@ export default function ProfileDetailView({
           <Avatar 
             className="h-32 w-32 md:h-40 md:w-40 border-2 border-gray-100 shadow-md overflow-hidden"
             style={{
-              borderRadius: '50%', // Ensure perfect circle
-              position: 'relative' // For proper positioning of the image
+              borderRadius: '50%',
+              position: 'relative'
             }}
           >
             {profile.profilePicture ? (
-          <AvatarImage 
-                src={profile.profilePicture || ""} 
-                alt={profile.fullName}
+              <AvatarImage 
+                src={ensureString(profile.profilePicture) || ""} 
+                alt={ensureString(profile.fullName) || "Profile"}
                 className="object-cover"
                 style={{
                   width: '100%',
                   height: '100%',
                   objectFit: 'cover',
-                  objectPosition: 'center 30%', // Position toward top for better face framing
-                  transform: 'scale(1.02)', // Slight scale to avoid potential white edges
+                  objectPosition: 'center 10%',
+                  transform: 'scale(1.02)',
                 }}
-                loading="eager" // Prioritize loading
+                loading="eager"
               />
             ) : (
               <AvatarFallback 
@@ -184,14 +206,14 @@ export default function ProfileDetailView({
                   height: '100%'
                 }}
               >
-                {profile.fullName?.split(' ').map(n => n[0]).join('')}
+                {ensureString(profile.fullName)?.split(' ').map(n => n[0]).join('') || "?"}
               </AvatarFallback>
             )}
           </Avatar>
           <div className="mt-4 text-center w-full">
-            <h3 className="font-semibold text-lg">{profile.fullName}</h3>
+            <h3 className="font-semibold text-lg">{ensureString(profile.fullName) || "Unknown"}</h3>
             <p className="text-gray-500 text-sm mt-1">
-              {profile.participantCode ? `ID: ${profile.participantCode}` : 'No ID Assigned'}
+              {ensureString(profile.participantCode) ? `ID: ${ensureString(profile.participantCode)}` : 'No ID Assigned'}
             </p>
             
             <div className="mt-3">
@@ -200,24 +222,24 @@ export default function ProfileDetailView({
                 className="bg-blue-50 border-blue-200"
                 style={{ color: THEME.dark }}
               >
-                {profile.district || 'Unknown District'}
+                {ensureString(profile.district) || 'Unknown District'}
               </Badge>
             </div>
             
             <div className="mt-4 flex flex-col gap-2 w-full">
               <div className="flex items-center justify-center text-sm text-gray-600">
                 <Phone className="h-3 w-3 mr-2 text-gray-400" />
-                {profile.phoneNumber || "No phone number"}
+                {ensureString(profile.phoneNumber) || "No phone number"}
               </div>
               
               <div className="flex items-center justify-center text-sm text-gray-600">
                 <Mail className="h-3 w-3 mr-2 text-gray-400" />
-                {profile.email || "No email address"}
+                {ensureString(profile.email) || "No email address"}
               </div>
 
               <div className="flex items-center justify-center text-sm text-gray-600">
                 <MapPin className="h-3 w-3 mr-2 text-gray-400" />
-                {profile.town || "No town specified"}
+                {ensureString(profile.town) || "No town specified"}
               </div>
             </div>
           </div>
@@ -254,19 +276,12 @@ export default function ProfileDetailView({
           <ProfileField label="Town" value={profile.town} />
           <ProfileField label="Home Address" value={profile.homeAddress} />
           <ProfileField label="Country" value={profile.country} />
-          {/* <ProfileField label="Admin Level 1" value={profile.adminLevel1} />
-          <ProfileField label="Admin Level 2" value={profile.adminLevel2} />
-          <ProfileField label="Admin Level 3" value={profile.adminLevel3} />
-          <ProfileField label="Admin Level 4" value={profile.adminLevel4} />
-          <ProfileField label="Admin Level 5" value={profile.adminLevel5} /> */}
           <ProfileField label="Phone Number" value={profile.phoneNumber} />
-          {/* <ProfileField label="Additional Phone 1" value={profile.additionalPhoneNumber1} />
-          <ProfileField label="Additional Phone 2" value={profile.additionalPhoneNumber2} /> */}
           <ProfileField label="Email" value={profile.email} />
         </div>
       </ProfileCard>
       
-      {/* Emergency Contact */}
+      {/* Emergency Contact - Completely rewritten */}
       <ProfileCard 
         title="Emergency Contact" 
         icon={<Heart className="h-5 w-5" style={{ color: THEME.primary }} />}
@@ -274,12 +289,11 @@ export default function ProfileDetailView({
         className="col-span-1"
       >
         <div className="space-y-4">
-          <ProfileField label="Name" value={emergencyContact?.name || 
-            (typeof emergencyContact === 'string' ? emergencyContact : null)} />
-          {/* <ProfileField label="Relationship" value={emergencyContact?.relation} />
-          <ProfileField label="Phone" value={emergencyContact?.phone} />
-          <ProfileField label="Email" value={emergencyContact?.email} />
-          <ProfileField label="Address" value={emergencyContact?.address} /> */}
+          <ProfileField label="Name" value={safelyExtractData(profile.emergencyContact, "name") || safelyExtractData(profile.emergencyContact)} />
+          <ProfileField label="Relationship" value={safelyExtractData(profile.emergencyContact, "relation")} />
+          <ProfileField label="Phone" value={safelyExtractData(profile.emergencyContact, "phone")} />
+          <ProfileField label="Email" value={safelyExtractData(profile.emergencyContact, "email")} />
+          <ProfileField label="Address" value={safelyExtractData(profile.emergencyContact, "address")} />
         </div>
       </ProfileCard>
       
@@ -315,7 +329,7 @@ export default function ProfileDetailView({
           <ProfileField label="Years of Experience" value={profile.yearsOfExperience} />
           <ProfileField label="Industry Expertise" value={profile.industryExpertise} />
           <ProfileField label="Work History" value={profile.workHistory} />
-          <ProfileField label="Languages Spoken" value={languagesSpoken} />
+          <ProfileField label="Languages Spoken" value={safelyExtractData(profile.languagesSpoken)} />
           <ProfileField label="Communication Style" value={profile.communicationStyle} />
           <ProfileField label="Digital Skills" value={profile.digitalSkills} />
           <ProfileField label="Digital Skills 2" value={profile.digitalSkills2} />
@@ -333,35 +347,34 @@ export default function ProfileDetailView({
         <div className="space-y-4">
           <ProfileField label="Employment Status" value={profile.employmentStatus} />
           <ProfileField label="Employment Type" value={profile.employmentType} />
-          {/* <ProfileField label="Specific Job" value={profile.specificJob} /> */}
           <ProfileField label="Business Interest" value={profile.businessInterest} />
           
-          <ProfileField 
-            label="Training Status" 
-            value={
-              profile.trainingStatus ? (
+          <div className="flex flex-col gap-1">
+            <div className="font-medium text-gray-500">Training Status:</div>
+            <div className="text-gray-700 break-words">
+              {profile.trainingStatus ? (
                 <Badge className={`
                   ${profile.trainingStatus === 'Completed' ? 'bg-green-100 text-green-800 border-green-200' : 
                     profile.trainingStatus === 'In Progress' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 
                     profile.trainingStatus === 'Dropped' ? 'bg-red-100 text-red-800 border-red-200' : 
                     'bg-gray-100 text-gray-800 border-gray-200'}
                 `}>
-                  {profile.trainingStatus}
+                  {ensureString(profile.trainingStatus)}
                 </Badge>
-              ) : "Not specified"
-            } 
-          />
+              ) : "Not specified"}
+            </div>
+          </div>
           
-          <ProfileField 
-            label="Program Status" 
-            value={
-              profile.programStatus ? (
+          <div className="flex flex-col gap-1">
+            <div className="font-medium text-gray-500">Program Status:</div>
+            <div className="text-gray-700 break-words">
+              {profile.programStatus ? (
                 <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-                  {profile.programStatus}
+                  {ensureString(profile.programStatus)}
                 </Badge>
-              ) : "Not specified"
-            } 
-          />
+              ) : "Not specified"}
+            </div>
+          </div>
           
           <ProfileField label="Transition Status" value={profile.transitionStatus} />
           
@@ -439,7 +452,7 @@ export default function ProfileDetailView({
         </div>
       </ProfileCard>
       
-      {/* Certifications (if you still want to include this) */}
+      {/* Certifications */}
       <ProfileCard 
         title="Certifications & Credentials" 
         icon={<Award className="h-5 w-5" style={{ color: THEME.primary }} />}

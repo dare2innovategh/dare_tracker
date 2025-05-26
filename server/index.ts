@@ -12,6 +12,7 @@ import { autoAssignAdminPermissions } from "./auto-permission-loader";
 import { fixAdminPermissions } from "./fix-admin-permissions-again";
 import { users, roles, permissions, rolePermissions } from "@shared/schema";
 import { fileURLToPath } from 'url';
+import reportsRouter from './routes/reports';
 
 const app = express();
 app.use(express.json());
@@ -1292,6 +1293,13 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = await registerRoutes(app);
+
+  // ============================================================================
+  // MOUNT REPORTS ROUTER AFTER SESSION MIDDLEWARE IS SET UP
+  // ============================================================================
+  console.log("🔧 Mounting reports router AFTER session middleware...");
+  app.use('/api/reports', reportsRouter);
+
 
   // Global error handler - ensure it returns JSON for all errors
   app.use((err: any, req: Request, res: Response, _next: NextFunction) => {

@@ -283,7 +283,7 @@ export const youthProfiles = pgTable("youth_profiles", {
   // Program Participation
   businessInterest:     text("business_interest"),
   employmentStatus:     text("employment_status"),
-  employmentType:     text("employment_type"),
+  employmentType:       text("employment_type"),
   specificJob:          text("specific_job"),
   trainingStatus:       text("training_status"),
   programStatus:        text("program_status"),
@@ -357,7 +357,7 @@ export const businessProfiles = pgTable("business_profiles", {
   enterpriseOwnerName:       text("enterprise_owner_name"),
   enterpriseOwnerDob:        date("enterprise_owner_dob"),
   enterpriseOwnerSex:        text("enterprise_owner_sex"),
-  enterpriseType:            text("enterprise_type", { enum: ["Sole Proprietorship","Partnership","Limited Liability Company","Cooperative","Social Enterprise","Other"] }),
+  enterpriseType:            text("enterprise_type", { enum: ["Formal","Informal"] }),
   enterpriseSize:            text("enterprise_size", { enum: ["Micro","Small","Medium","Large"] }),
   subPartnerNames:           json("sub_partner_names"),
   totalYouthInWorkReported:  integer("total_youth_in_work_reported").default(0),

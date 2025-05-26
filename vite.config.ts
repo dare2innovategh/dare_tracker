@@ -29,5 +29,9 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    // Temporarily disable CSS minification to debug
+    cssMinify: false,
+    // Also generate source maps to help debug
+    sourcemap: true,
   },
 });

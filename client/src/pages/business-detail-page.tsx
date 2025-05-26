@@ -254,6 +254,31 @@ export default function BusinessDetailPage() {
     }
   };
 
+  // Safer function to ensure a value is a string
+const ensureString = (value: any): string | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return value.filter(v => v !== null && v !== undefined).map(v => ensureString(v)).join(", ");
+  }
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch (e) {
+      return null;
+    }
+  }
+  return null;
+};
+
+
   // Fetch business details
   const {
     data: business,
@@ -1352,13 +1377,33 @@ export default function BusinessDetailPage() {
                                 >
                                   <TableCell>
                                     <div className="flex items-center">
-                                      <Avatar className="h-8 w-8 mr-3">
-                                        <AvatarImage src={member.profilePicture || undefined} alt={member.fullName} />
-                                        <AvatarFallback style={{ 
-                                          background: `linear-gradient(135deg, ${THEME.secondary}20 0%, ${THEME.primary}20 50%, ${THEME.accent}20 100%)` 
-                                        }}>
-                                          {member.fullName.charAt(0)}
-                                        </AvatarFallback>
+                                       <Avatar 
+                                          className="h-10 w-10 border-2 transition-all duration-300 overflow-hidden mr-2"
+                                          style={{ 
+                                            borderColor: hoveredRow === member.id ? getDistrictColor(member.district) : 'transparent',
+                                            backgroundColor: getDistrictColor(member.district, 0.1)
+                                          }}
+                                        >
+                                          {member.profilePicture ? (
+                                            <AvatarImage 
+                                              src={member.profilePicture} 
+                                              alt={member.fullName}
+                                              className="object-cover"
+                                              style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                objectFit: 'cover',
+                                                objectPosition: 'center 30%' // Slightly toward the top for better face framing
+                                              }}
+                                            />
+                                          ) : (
+                                            <AvatarFallback style={{ 
+                                              background: `linear-gradient(135deg, ${getDistrictColor(member.district, 0.8)} 0%, ${getDistrictColor(member.district)} 100%)`,
+                                              color: 'white'
+                                            }}>
+                                              {member.fullName.charAt(0)}
+                                            </AvatarFallback>
+                                          )}
                                       </Avatar>
                                       <div>
                                         <div className="font-medium text-gray-900">{member.fullName}</div>

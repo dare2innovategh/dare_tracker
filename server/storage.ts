@@ -204,71 +204,6 @@ export class MemStorage implements IStorage {
     this.seedRolePermissions();
   }
   
-  // Role Permission Methods
-  async getRolePermission(id: number): Promise<RolePermission | undefined> {
-    return this.rolePermissions.get(id);
-  }
-  
-  async getRolePermissionsByRole(role: string): Promise<RolePermission[]> {
-    return Array.from(this.rolePermissions.values()).filter(
-      (permission) => permission.role === role
-    );
-  }
-  
-  async getAllRolePermissions(): Promise<RolePermission[]> {
-    return Array.from(this.rolePermissions.values());
-  }
-  
-  async hasPermission(role: string, resource: string, action: string): Promise<boolean> {
-    // Admin always has all permissions
-    if (role === 'admin') return true;
-    
-    // Check if the role has the specific permission
-    return Array.from(this.rolePermissions.values()).some(
-      (permission) => 
-        permission.role === role && 
-        permission.resource === resource && 
-        permission.action === action
-    );
-  }
-  
-  async createRolePermission(permission: InsertRolePermission): Promise<RolePermission> {
-    const id = this.rolePermissionIdCounter++;
-    const now = new Date();
-    const rolePermission: RolePermission = { 
-      ...permission, 
-      id, 
-      createdAt: now,
-      updatedAt: now
-    };
-    this.rolePermissions.set(id, rolePermission);
-    return rolePermission;
-  }
-  
-  async deleteRolePermission(rolePermission: InsertRolePermission): Promise<void> {
-    const permissions = Array.from(this.rolePermissions.values()).filter(
-      (p) => 
-        p.role === rolePermission.role && 
-        p.resource === rolePermission.resource && 
-        p.action === rolePermission.action
-    );
-    
-    if (permissions.length > 0) {
-      for (const permission of permissions) {
-        this.rolePermissions.delete(permission.id);
-      }
-    }
-  }
-  
-  async deleteAllRolePermissions(role: string): Promise<void> {
-    const permissions = Array.from(this.rolePermissions.values()).filter(
-      (p) => p.role === role
-    );
-    
-    for (const permission of permissions) {
-      this.rolePermissions.delete(permission.id);
-    }
-  }
   
   // Helper method to seed initial role permissions for admin
   private seedRolePermissions() {
@@ -1023,11 +958,6 @@ async getAllYouthProfiles(): Promise<YouthProfile[]> {
     return this.roles.get(id);
   }
   
-  async getRoleByName(name: string): Promise<Role | undefined> {
-    return Array.from(this.roles.values()).find(
-      role => role.name === name
-    );
-  }
   
   async getAllRoles(): Promise<Role[]> {
     return Array.from(this.roles.values());
@@ -1137,10 +1067,6 @@ async getAllYouthProfiles(): Promise<YouthProfile[]> {
     );
   }
   
-  async deleteRolePermissionsByRole(role: string): Promise<void> {
-    // This is an alias for deleteAllRolePermissions for API compatibility
-    await this.deleteAllRolePermissions(role);
-  }
   
   // Required by IStorage interface but already implemented as getAllUsers
   async getAllUsers(page?: number, limit?: number): Promise<{ users: User[]; total: number }> {
@@ -1311,10 +1237,6 @@ export class DatabaseStorage implements IStorage {
     return role;
   }
   
-  async getRoleByName(name: string): Promise<Role | undefined> {
-    const [role] = await db.select().from(roles).where(eq(roles.name, name));
-    return role;
-  }
   
   async getAllRoles(): Promise<Role[]> {
     // Use system roles table (roles) instead of custom_roles table
@@ -1410,57 +1332,7 @@ export class DatabaseStorage implements IStorage {
   async deletePermission(id: number): Promise<void> {
     await db.delete(permissions).where(eq(permissions.id, id));
   }
-  
-  // Role Permission Junction Methods
-  async getRolePermission(id: number): Promise<RolePermission | undefined> {
-    const [rolePermission] = await db
-      .select()
-      .from(rolePermissions)
-      .where(eq(rolePermissions.id, id));
-    
-    // Populate related resource and action properties
-    if (rolePermission) {
-      const [permission] = await db
-        .select()
-        .from(permissions)
-        .where(eq(permissions.id, rolePermission.permissionId));
-        
-      const [role] = await db
-        .select()
-        .from(roles)
-        .where(eq(roles.id, rolePermission.roleId));
-        
-      return {
-        ...rolePermission,
-        role: role.name,
-        resource: permission.resource,
-        action: permission.action
-      } as unknown as RolePermission;
-    }
-    
-    return undefined;
-  }
-  
-  async getRolePermissionsByRole(roleName: string): Promise<RolePermission[]> {
-    // First get the role by name from custom_roles table
-    const [role] = await db
-      .select()
-      .from(customRoles)
-      .where(eq(customRoles.name, roleName));
-      
-    if (!role) {
-      return [];
-    }
-    
-    // Get the permissions directly from role_permissions table
-    // since the schema has resource and action columns directly
-    const results = await db
-      .select()
-      .from(rolePermissions)
-      .where(eq(rolePermissions.roleId, role.id));
-    
-    return results;
-  }
+ 
   
   async getAllRolePermissions(): Promise<RolePermission[]> {
     const results = await db
@@ -1481,125 +1353,7 @@ export class DatabaseStorage implements IStorage {
     return results as unknown as RolePermission[];
   }
   
-  async hasPermission(roleName: string, resourceName: string, actionName: string): Promise<boolean> {
-    // Admin always has all permissions
-    if (roleName.toLowerCase() === 'admin') return true;
-    
-    const [result] = await db
-      .select({
-        exists: sql<boolean>`EXISTS (
-          SELECT 1 FROM ${rolePermissions}
-          JOIN ${roles} ON ${rolePermissions.roleId} = ${roles.id}
-          WHERE ${roles.name} = ${roleName}
-          AND ${rolePermissions.resource} = ${resourceName}
-          AND ${rolePermissions.action} = ${actionName}
-        )`
-      });
-      
-    return result.exists;
-  }
-  
-  async checkRolePermissionExists(roleName: string, resourceName: string, actionName: string): Promise<RolePermission | undefined> {
-    const [result] = await db
-      .select({
-        id: rolePermissions.id,
-        roleId: rolePermissions.roleId,
-        createdAt: rolePermissions.createdAt,
-        updatedAt: rolePermissions.updatedAt,
-        role: roles.name,
-        resource: rolePermissions.resource,
-        action: rolePermissions.action
-      })
-      .from(rolePermissions)
-      .innerJoin(roles, eq(rolePermissions.roleId, roles.id))
-      .where(
-        and(
-          eq(roles.name, roleName),
-          eq(rolePermissions.resource, resourceName),
-          eq(rolePermissions.action, actionName)
-        )
-      );
-    
-    return result as unknown as RolePermission;
-  }
-  
-  async createRolePermission(permission: InsertRolePermission): Promise<RolePermission> {
-    // First get the role ID from system roles table
-    const [role] = await db
-      .select()
-      .from(roles)
-      .where(eq(roles.name, permission.role as string));
-      
-    if (!role) {
-      throw new Error(`Role with name ${permission.role} not found`);
-    }
-    
-    // Check if this role permission already exists
-    const existingPermission = await this.checkRolePermissionExists(
-      permission.role as string,
-      permission.resource as string,
-      permission.action as string
-    );
-    
-    if (existingPermission) {
-      return existingPermission;
-    }
-    
-    // Create the role permission entry with direct resource and action (no join needed)
-    const [newRolePermission] = await db.insert(rolePermissions)
-      .values({
-        roleId: role.id,
-        resource: permission.resource as string,
-        action: permission.action as string
-      })
-      .returning();
-      
-    // Return with the complete data
-    return {
-      ...newRolePermission,
-      role: role.name
-    } as unknown as RolePermission;
-  }
-  
-  async deleteRolePermission(permission: InsertRolePermission): Promise<void> {
-    // First get the role ID from system roles table
-    const [role] = await db
-      .select()
-      .from(roles)
-      .where(eq(roles.name, permission.role as string));
-      
-    if (!role) return; // Role not found, nothing to delete
-    
-    // Delete the role permission directly using resource and action
-    await db.delete(rolePermissions)
-      .where(
-        and(
-          eq(rolePermissions.roleId, role.id),
-          eq(rolePermissions.resource, permission.resource as string),
-          eq(rolePermissions.action, permission.action as string)
-        )
-      );
-  }
-  
-  async deleteRolePermissionsByRole(roleName: string): Promise<void> {
-    // This is the same as deleteAllRolePermissions
-    await this.deleteAllRolePermissions(roleName);
-  }
-  
-  async deleteAllRolePermissions(roleName: string): Promise<void> {
-    // First get the role ID from system roles table
-    const [role] = await db
-      .select()
-      .from(roles)
-      .where(eq(roles.name, roleName));
-      
-    if (!role) return; // Role not found, nothing to delete
-    
-    // Delete all permissions for this role
-    await db.delete(rolePermissions)
-      .where(eq(rolePermissions.roleId, role.id));
-  }
-  
+
   // Helper method to seed default role permissions
   private async seedDefaultPermissions() {
     try {
@@ -2873,11 +2627,7 @@ async removeMentorBusinessDirect(mentorId: number, businessId: number): Promise<
       return [];
     }
   }
-  
-  async getAllRolePermissions(): Promise<RolePermission[]> {
-    return await db.select().from(rolePermissions);
-  }
-  
+
   async hasPermission(roleName: string, resource: string, action: string): Promise<boolean> {
     try {
       console.log(`Checking if role '${roleName}' has permission for resource='${resource}', action='${action}'`);

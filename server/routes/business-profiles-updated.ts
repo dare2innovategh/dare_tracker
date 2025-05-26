@@ -23,12 +23,8 @@ const router = express.Router();
 const businessFormSchema = insertBusinessProfileSchema.extend({
   youthIds: z.array(z.number()).min(1, { message: 'At least one youth member is recommended' }).optional(),
   enterpriseType: z.enum([
-    'Sole Proprietorship',
-    'Partnership',
-    'Limited Liability Company',
-    'Cooperative',
-    'Social Enterprise',
-    'Other',
+    'Informal',
+    'Formal',
   ]).optional(),
   enterpriseSize: z.enum(['Micro', 'Small', 'Medium', 'Large']).optional(),
   implementingPartnerName: z.string().optional(),
@@ -662,14 +658,14 @@ router.post('/', async (req: Request, res: Response) => {
 
     // Derive enterprise type
     const enterpriseTypeMapping = {
-      Collaborative: 'Partnership',
-      MakerSpace: 'Social Enterprise',
-      'Madam Anchor': 'Sole Proprietorship',
+      Collaborative: 'Informal',
+      MakerSpace: 'Informal',
+      'Madam Anchor': 'Informal',
     };
     const enterpriseType = businessData.enterpriseType ||
       (businessData.businessModel
         ? enterpriseTypeMapping[businessData.businessModel as keyof typeof enterpriseTypeMapping]
-        : 'Other');
+        : 'Informal');
 
     // Derive owner details
     const ownerDetails = await deriveEnterpriseOwnerDetails(youthIds || [], youthProfiles);
@@ -923,7 +919,7 @@ router.post('/youth-relationships', async (req: Request, res: Response) => {
         additionalPhoneNumber2: primaryOwner.additionalPhoneNumber2 || null,
         businessEmail: primaryOwner.email || null,
         subPartnerNames: JSON.stringify(subPartnerNames),
-        enterpriseType: youthIds.length > 1 ? 'Partnership' : 'Sole Proprietorship',
+        enterpriseType: youthIds.length > 1 ? 'Informal' : 'Formal',
         enterpriseSize: youthIds.length <= 5 ? 'Micro' : youthIds.length <= 20 ? 'Small' : 'Medium',
         totalYouthInWorkReported: youthMetrics.totalYouthInWorkReported,
         youthRefugeeCount: youthMetrics.youthRefugeeCount,

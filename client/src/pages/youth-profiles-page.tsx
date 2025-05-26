@@ -492,7 +492,7 @@ export default function YouthProfilesPage() {
               <CardContent className="p-4 md:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-gray-500 text-sm font-medium">Businesses</p>
+                    <p className="text-gray-500 text-sm font-medium">Jobs</p>
                     <h3 className="text-2xl font-bold mt-1 text-gray-900">
                       {profiles?.reduce((acc, profile) => acc + ((profile.businessesCount || 0)), 0) || 0}
                     </h3>
@@ -851,7 +851,7 @@ export default function YouthProfilesPage() {
                                         {profile.fullName.charAt(0)}
                                       </AvatarFallback>
                                     )}
-                                  </Avatar>
+                                </Avatar>
                                 <div>
                                   <div className="font-medium text-gray-900 hover:text-primary transition-colors duration-150">
                                     {profile.fullName}

@@ -258,7 +258,7 @@ export default function BusinessAddPage() {
       youthIds: [],
       country: "Ghana",
       enterpriseSize: "Micro",
-      enterpriseType: "Sole Proprietorship",
+      enterpriseType: "Informal",
       implementingPartnerName: "University of Ghana Business School (UGBS)",
       sector: "Retail",
       paymentStructure: "Self-Pay",
@@ -486,7 +486,7 @@ export default function BusinessAddPage() {
       youthIds: selectedYouth,
       mentorId: selectedMentor,
       businessLogo: businessLogo || data.businessLogo,
-      enterpriseType: data.enterpriseType || "Sole Proprietorship",
+      enterpriseType: data.enterpriseType || "Informal",
       enterpriseSize: data.enterpriseSize || "Micro"
     };
     

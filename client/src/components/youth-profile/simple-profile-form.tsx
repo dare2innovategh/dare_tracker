@@ -673,7 +673,7 @@ const mutation = useMutation({
       // Add optional fields that have values and are not "None"
       const optionalFields = [
         'preferredName', 'town', 'homeAddress', 'country',
-        'adminLevel1', 'adminLevel2', 'adminLevel3', 'adminLevel4', 'adminLevel5',
+        'adminLevel1', 'adminLevel2', 'adminLevel3', 'adminLevel4', 'adminLevel5','phoneNumber',
         'additionalPhoneNumber1', 'additionalPhoneNumber2', 'email',
         'profilePicture', 'participantCode', 'maritalStatus', 'childrenCount', 
         'dependents', 'nationalId', 'pwdStatus',

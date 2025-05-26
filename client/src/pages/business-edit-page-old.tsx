@@ -187,12 +187,8 @@ const categoryToSubcategories: Record<number, { id: number, name: string }[]> = 
 const businessFormSchema = insertBusinessProfileSchema.extend({
   youthIds: z.array(z.number()).min(1, { message: "At least one youth member is recommended" }).optional(),
   enterpriseType: z.enum([
-    'Sole Proprietorship',
-    'Partnership',
-    'Limited Liability Company',
-    'Cooperative',
-    'Social Enterprise',
-    'Other',
+    'Informal',
+    'Formal',
   ]).optional(),
   enterpriseSize: z.enum(['Micro', 'Small', 'Medium', 'Large']).optional(),
   implementingPartnerName: z.string().optional(),
